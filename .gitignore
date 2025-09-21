@@ -116,8 +116,84 @@ data
 docs/modelzoo_statistics.md
 mmdet/.mim
 work_dirs/
+augmented_data/
+data/
+outputs/
+
+# Large datasets and training outputs (DO NOT COMMIT TO GITHUB)
+development/augmented_data/
+development/augmented_data_production/
+development/aggressive_augmentation_test/
+development/augmentation_samples/
+development/data/
+development/outputs/
+development/work_dirs/
+
+# Embedded/cloned repositories
+demo/mmdetection/
+
+# Dataset directories
+**/train/images/
+**/valid/images/
+**/test/images/
+**/annotations/*.json
+
+# Large image files in development (keep small demo images in other dirs)
+development/**/*.jpg
+development/**/*.jpeg
+development/**/*.png
+development/**/*.bmp
+
+# Model checkpoints and weights
+*.pth
+*.pth.tar
+*.pt
+*.ckpt
+*.safetensors
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+
+# Training logs and temporary files
+*.log
+*.out
+*.err
+logs/
+tensorboard_logs/
+wandb/
+
+# Jupyter notebook outputs and checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+*.ipynb_checkpoints
 
 # Pytorch
-*.pth
 *.py~
 *.sh~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment and dependency files
+*.egg-info/
+pip-wheel-metadata/
+.tox/
