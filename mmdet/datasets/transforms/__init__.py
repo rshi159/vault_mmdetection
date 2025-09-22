@@ -8,6 +8,8 @@ from .formatting import (ImageToTensor, PackDetInputs, PackReIDInputs,
 from .frame_sampling import BaseFrameSample, UniformRefFrameSample
 from .geometric import (GeomTransform, Rotate, ShearX, ShearY, TranslateX,
                         TranslateY)
+from .heatmap_transforms import GenerateHeatmapChannel, Pad4Channel
+from .robust_heatmap import RobustHeatmapGeneration, HeatmapQualityScheduler
 from .instaboost import InstaBoost
 from .loading import (FilterAnnotations, InferencerLoader, LoadAnnotations,
                       LoadEmptyAnnotations, LoadImageFromNDArray,
@@ -41,5 +43,6 @@ __all__ = [
     'LoadTrackAnnotations', 'BaseFrameSample', 'UniformRefFrameSample',
     'PackTrackInputs', 'PackReIDInputs', 'FixScaleResize',
     'ResizeShortestEdge', 'GTBoxSubOne_GLIP', 'RandomFlip_GLIP',
-    'RandomSamplingNegPos', 'LoadTextAnnotations'
+    'RandomSamplingNegPos', 'LoadTextAnnotations', 'GenerateHeatmapChannel',
+    'Pad4Channel', 'RobustHeatmapGeneration', 'HeatmapQualityScheduler'
 ]
