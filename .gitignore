@@ -131,6 +131,7 @@ development/work_dirs/
 
 # Embedded/cloned repositories
 demo/mmdetection/
+demo/mmdetection_backup/
 
 # Dataset directories
 **/train/images/
@@ -197,3 +198,6 @@ Thumbs.db
 *.egg-info/
 pip-wheel-metadata/
 .tox/
+
+# Backup directories
+demo/mmdetection_backup/
