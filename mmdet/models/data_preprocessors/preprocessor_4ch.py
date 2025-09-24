@@ -90,12 +90,28 @@ class DetDataPreprocessor4Ch(DetDataPreprocessor):
         Returns:
             Preprocessed data ready for backbone
         """
-        # Get pad shapes before calling parent forward (like DetDataPreprocessor does)
-        batch_pad_shape = self._get_pad_shape(data)
+        # CRITICAL: We need to call the full DetDataPreprocessor forward method
+        # to ensure proper device placement for bboxes and other data samples
+        # But we can't call super().forward() directly due to channel restrictions
         
-        # Call the BaseDataPreprocessor forward for basic processing (handles device movement, etc.)
-        data = BaseDataPreprocessor.forward(self, data=data, training=training)
+        # Instead, we'll replicate the key parts of DetDataPreprocessor.forward
+        # while bypassing the channel count validation
+        
+        from mmengine.structures import BaseDataElement
+        
+        # Cast inputs to correct types (from BaseDataPreprocessor)
+        data = self.cast_data(data)
         inputs, data_samples = data['inputs'], data['data_samples']
+        
+        # Handle device placement for data samples (CRITICAL for GPU training)
+        if isinstance(data_samples, list):
+            data_samples = [sample.to(self.device) if hasattr(sample, 'to') else sample 
+                           for sample in data_samples]
+        elif hasattr(data_samples, 'to'):
+            data_samples = data_samples.to(self.device)
+        
+        # Get pad shapes for updating data samples later
+        batch_pad_shape = self._get_pad_shape({'inputs': inputs, 'data_samples': data_samples})
 
         # Process the inputs - normalize and batch them properly
         if isinstance(inputs, (list, tuple)):
@@ -161,7 +177,8 @@ class DetDataPreprocessor4Ch(DetDataPreprocessor):
                     'pad_shape': pad_shape
                 })
 
-        return data
+        # Return the processed data in the expected format
+        return {'inputs': inputs, 'data_samples': data_samples}
 
     def _get_pad_shape(self, data: dict):
         """Get the pad_shape of each image based on data and pad_size_divisor."""

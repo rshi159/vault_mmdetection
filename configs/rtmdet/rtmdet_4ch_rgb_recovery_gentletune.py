@@ -7,6 +7,17 @@
 # ============================================================================
 default_scope = 'mmdet'
 
+# Custom imports for 4-channel components
+custom_imports = dict(
+    imports=[
+        'mmdet.models.data_preprocessors.preprocessor_4ch',
+        'mmdet.models.backbones.backbone_4ch',
+        'mmdet.datasets.transforms.fast_4ch',
+        'mmdet.engine.hooks.rgb_4ch_hook',
+    ],
+    allow_failed_imports=False
+)
+
 # ============================================================================
 # MODEL - RTMDet with 4-Channel Input
 # ============================================================================
@@ -378,10 +389,12 @@ custom_hooks = [
         begin_iter=500                 # 🔧 FIXED: Use begin_iter for MMEngine compatibility (was warm_up)
     ),
     dict(
-        type='RGBOnlyTrainingHook',    # 🔧 RECOVERY: Keep RGB-only training for 4th channel
+        type='RGB4ChannelHook',        # 🔧 RECOVERY: Proper 4ch→3ch RGB-only training
         zero_4th_channel=True,
+        freeze_4th_channel=True,
         monitor_weights=True,
-        log_interval=500
+        log_interval=500,
+        first_conv_name='backbone.stem.0.conv'  # 🔧 FIXED: Correct path for your checkpoint
     ),
     dict(
         type='SizeAnnealingHook',      # 🔧 OPTIMIZE: Switch to 640px in final epochs  
@@ -418,7 +431,7 @@ log_processor = dict(
 )
 
 log_level = 'INFO'
-load_from = './work_dirs/rgb_foundation_ultrafast_300ep/best_coco_bbox_mAP_epoch_70.pth'  # 🔧 RECOVERY: Load from peak
+load_from = './work_dirs/rtmdet_optimized_training/best_coco_bbox_mAP_epoch_195_4ch.pth'  # 🔧 RECOVERY: Load from 3ch→4ch inflated checkpoint
 resume = False
 
 # ============================================================================

@@ -6,6 +6,7 @@ from .num_class_check_hook import NumClassCheckHook
 from .pipeline_switch_hook import PipelineSwitchHook
 from .priorh_monitor_hook import PriorHMonitorHook
 from .prediction_vis_hook import PredictionVisualizationHook
+from .rgb_4ch_hook import RGB4ChannelHook
 from .rgb_only_hook import RGBOnlyTrainingHook
 from .set_epoch_info_hook import SetEpochInfoHook
 from .size_annealing_hook import SizeAnnealingHook
@@ -23,5 +24,5 @@ __all__ = [
     'NumClassCheckHook', 'MeanTeacherHook', 'trigger_visualization_hook',
     'PipelineSwitchHook', 'TrackVisualizationHook',
     'GroundingVisualizationHook', 'PriorHMonitorHook', 'PredictionVisualizationHook',
-    'RGBOnlyTrainingHook', 'TF32Hook', 'SizeAnnealingHook'
+    'RGBOnlyTrainingHook', 'RGB4ChannelHook', 'TF32Hook', 'SizeAnnealingHook'
 ]
