@@ -19,7 +19,8 @@ model = dict(
         mean=[123.675, 116.28, 103.53, 0.0],    # 🔧 FIXED: RGB order + zero for heatmap channel
         std=[58.395, 57.12, 57.375, 1.0],       # 🔧 FIXED: RGB order + unity for heatmap channel
         bgr_to_rgb=True,                         # 🔧 FIXED: Align with RGB mean/std
-        pad_size_divisor=32,                     # 🔧 FIXED: Normalized padding, no gray artifacts
+        pad_size_divisor=32,                     # 🔧 FIX TENSOR SHAPE: Ensure all tensors divisible by 32
+        pad_value=0,                             # 🔧 FIX TENSOR SHAPE: Consistent padding value
         batch_augments=None                      # 🔧 RECOVERY: No batch augmentations
         # Note: GT clipping handled by pipeline transforms below
     ),
@@ -140,8 +141,8 @@ val_pipeline = [
     # 🔧 FIXED: Convert RGB to 4-channel BEFORE other operations
     dict(type='RGBOnly4Channel'),               # Convert RGB to 4-channel first
     
-    # 🔧 FIXED: Keep aspect ratio consistent with train pipeline
-    dict(type='Resize', scale=(640, 640), keep_ratio=True),
+    # 🔧 FIX TENSOR SHAPE: Use same resolution as training to avoid dimension mismatch
+    dict(type='Resize', scale=(768, 768), keep_ratio=True),
     
     # 🔧 REMOVED: No explicit padding - data_preprocessor handles it cleanly
     dict(
@@ -357,7 +358,7 @@ default_hooks = dict(
         save_best='coco/bbox_mAP'  # 🔧 RECOVERY: Save best mAP
     ),
     sampler_seed=dict(type='DistSamplerSeedHook'),
-    visualization=dict(type='DetVisualizationHook')
+    # visualization=dict(type='DetVisualizationHook')  # 🔧 COMMENTED: Causing massive CPU slowdown during validation
 )
 
 # ============================================================================

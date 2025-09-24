@@ -22,7 +22,7 @@ class DetDataPreprocessor4Ch(DetDataPreprocessor):
     - Drop-in replacement for standard DetDataPreprocessor
     """
 
-    def __init__(self, mean=None, std=None, bgr_to_rgb=False, pad_size_divisor=1, batch_augments=None, **kwargs):
+    def __init__(self, mean=None, std=None, bgr_to_rgb=False, pad_size_divisor=1, pad_value=0, batch_augments=None, **kwargs):
         """
         Initialize 4-channel preprocessor.
 
@@ -31,6 +31,7 @@ class DetDataPreprocessor4Ch(DetDataPreprocessor):
             std: Per-channel std values (list of length = input channels)
             bgr_to_rgb: Whether to convert BGR to RGB
             pad_size_divisor: Pad size divisor
+            pad_value: Value used for padding
             batch_augments: Batch augmentations
             **kwargs: Other arguments passed to parent
         """
@@ -55,6 +56,7 @@ class DetDataPreprocessor4Ch(DetDataPreprocessor):
         # Set up 4-channel specific attributes
         self.bgr_to_rgb = bgr_to_rgb
         self.pad_size_divisor = pad_size_divisor
+        self.pad_value = pad_value
         self.batch_augments = batch_augments
         
         # Set up normalization for 4 channels
@@ -119,19 +121,24 @@ class DetDataPreprocessor4Ch(DetDataPreprocessor):
                 
                 processed_inputs.append(input_tensor)
             
-            # Second pass: pad all tensors to max dimensions
+            # Second pass: pad all tensors to divisible dimensions (not just max dims)
             padded_inputs = []
+            
+            # Calculate the target dimensions that are divisible by pad_size_divisor
+            target_h = int(np.ceil(max_h / self.pad_size_divisor)) * self.pad_size_divisor
+            target_w = int(np.ceil(max_w / self.pad_size_divisor)) * self.pad_size_divisor
+            
             for input_tensor in processed_inputs:
                 c, h, w = input_tensor.shape
                 
-                # Calculate padding needed
-                pad_h = max_h - h
-                pad_w = max_w - w
+                # Calculate padding needed to reach target dimensions
+                pad_h = target_h - h
+                pad_w = target_w - w
                 
                 if pad_h > 0 or pad_w > 0:
                     # Pad with zeros (bottom, right padding)
                     padding = (0, pad_w, 0, pad_h)  # (left, right, top, bottom)
-                    input_tensor = torch.nn.functional.pad(input_tensor, padding, value=0)
+                    input_tensor = torch.nn.functional.pad(input_tensor, padding, value=self.pad_value)
                 
                 padded_inputs.append(input_tensor)
             
@@ -160,15 +167,22 @@ class DetDataPreprocessor4Ch(DetDataPreprocessor):
         """Get the pad_shape of each image based on data and pad_size_divisor."""
         _batch_inputs = data['inputs']
         if isinstance(_batch_inputs, list):
-            batch_pad_shape = []
+            # Find the maximum dimensions across all images in the batch
+            max_h, max_w = 0, 0
             for ori_input in _batch_inputs:
                 if isinstance(ori_input, torch.Tensor):
-                    pad_h = int(np.ceil(ori_input.shape[-2] / self.pad_size_divisor)) * self.pad_size_divisor
-                    pad_w = int(np.ceil(ori_input.shape[-1] / self.pad_size_divisor)) * self.pad_size_divisor
+                    max_h = max(max_h, ori_input.shape[-2])
+                    max_w = max(max_w, ori_input.shape[-1])
                 else:
-                    pad_h = int(np.ceil(ori_input.shape[0] / self.pad_size_divisor)) * self.pad_size_divisor
-                    pad_w = int(np.ceil(ori_input.shape[1] / self.pad_size_divisor)) * self.pad_size_divisor
-                batch_pad_shape.append((pad_h, pad_w))
+                    max_h = max(max_h, ori_input.shape[0])
+                    max_w = max(max_w, ori_input.shape[1])
+            
+            # Calculate target dimensions for the whole batch (divisible by pad_size_divisor)
+            target_h = int(np.ceil(max_h / self.pad_size_divisor)) * self.pad_size_divisor
+            target_w = int(np.ceil(max_w / self.pad_size_divisor)) * self.pad_size_divisor
+            
+            # All images in the batch will be padded to the same target dimensions
+            batch_pad_shape = [(target_h, target_w)] * len(_batch_inputs)
         else:
             # Handle tensor batch case
             pad_h = int(np.ceil(_batch_inputs.shape[-2] / self.pad_size_divisor)) * self.pad_size_divisor
