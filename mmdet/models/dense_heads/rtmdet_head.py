@@ -457,6 +457,11 @@ class RTMDetHead(ATSSHead):
         if len(pos_inds) > 0:
             # point-based
             pos_bbox_targets = sampling_result.pos_gt_bboxes
+            # Convert HorizontalBoxes to tensor if needed
+            if hasattr(pos_bbox_targets, 'tensor'):
+                pos_bbox_targets = pos_bbox_targets.tensor
+            # Ensure same device
+            pos_bbox_targets = pos_bbox_targets.to(bbox_targets.device)
             bbox_targets[pos_inds, :] = pos_bbox_targets
 
             labels[pos_inds] = sampling_result.pos_gt_labels

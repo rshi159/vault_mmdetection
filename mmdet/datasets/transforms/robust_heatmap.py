@@ -41,7 +41,30 @@ class RobustHeatmapGeneration(BaseTransform):
                  quality_variance: bool = True,
                  min_sigma: float = 10.0,
                  max_sigma: float = 40.0,
-                 no_heatmap_ratio: float = 0.25):
+                 no_heatmap_ratio: float = 0.25,
+                 partial_heatmap_ratio: float = 0.15,  # NEW: Some parcels missing heatmaps
+                 global_noise_ratio: float = 0.0,
+                 global_noise_std: float = 0.05,
+                 multiplicative_noise_ratio: float = 0.0,
+                 multiplicative_noise_range: tuple = (0.8, 1.2),
+                 background_noise_std: float = 0.0):
+        """
+        Args:
+            noise_ratio: Probability of adding positional noise to centers/keypoints
+            error_ratio: Probability of adding deliberate errors
+            center_noise_std: Standard deviation for center position noise
+            keypoint_noise_std: Standard deviation for keypoint position noise  
+            quality_variance: Whether to vary heatmap quality
+            min_sigma: Minimum sigma for Gaussian heatmaps
+            max_sigma: Maximum sigma for Gaussian heatmaps
+            no_heatmap_ratio: Probability of generating zero heatmap (pure RGB)
+            partial_heatmap_ratio: Probability of missing heatmaps for some parcels
+            global_noise_ratio: Probability of adding global noise to entire heatmap
+            global_noise_std: Standard deviation for global noise
+            multiplicative_noise_ratio: Probability of adding multiplicative noise
+            multiplicative_noise_range: Range for multiplicative noise factor (min, max)
+            background_noise_std: Standard deviation for background noise (0 = no noise)
+        """
         
         self.noise_ratio = noise_ratio
         self.error_ratio = error_ratio
@@ -51,6 +74,12 @@ class RobustHeatmapGeneration(BaseTransform):
         self.min_sigma = min_sigma
         self.max_sigma = max_sigma
         self.no_heatmap_ratio = no_heatmap_ratio
+        self.partial_heatmap_ratio = partial_heatmap_ratio  # NEW
+        self.global_noise_ratio = global_noise_ratio
+        self.global_noise_std = global_noise_std
+        self.multiplicative_noise_ratio = multiplicative_noise_ratio
+        self.multiplicative_noise_range = multiplicative_noise_range
+        self.background_noise_std = background_noise_std
     
     def transform(self, results: dict) -> dict:
         """Generate robust heatmap and create 4-channel input."""
@@ -65,14 +94,24 @@ class RobustHeatmapGeneration(BaseTransform):
             # Get ground truth for heatmap generation (but add noise!)
             gt_bboxes = results.get('gt_bboxes', [])
             
-            # Generate heatmap with deliberate imperfections
-            heatmap = self._generate_noisy_heatmap(h, w, gt_bboxes)
+            # NEW: Support partial heatmaps - some parcels missing
+            if random.random() < self.partial_heatmap_ratio and len(gt_bboxes) > 1:
+                # Randomly skip some bboxes to simulate missing heatmaps
+                num_to_keep = max(1, random.randint(1, len(gt_bboxes) - 1))
+                indices = random.sample(range(len(gt_bboxes)), num_to_keep)
+                partial_bboxes = [gt_bboxes[i] for i in indices]
+                heatmap = self._generate_noisy_heatmap(h, w, partial_bboxes)
+            else:
+                # Generate heatmap with deliberate imperfections
+                heatmap = self._generate_noisy_heatmap(h, w, gt_bboxes)
             
             # Ensure correct shape
             if len(heatmap.shape) == 2:
                 heatmap = heatmap[..., np.newaxis]
         
-        # Combine RGB + Heatmap
+        # Combine RGB + Heatmap (ensure consistent float32 dtype)
+        img = img.astype(np.float32)  # Ensure RGB is float32
+        heatmap = heatmap.astype(np.float32)  # Ensure heatmap is float32
         img_4ch = np.concatenate([img, heatmap], axis=2)
         
         # Update results
@@ -81,18 +120,27 @@ class RobustHeatmapGeneration(BaseTransform):
         
         return results
     
-    def _generate_noisy_heatmap(self, height: int, width: int, gt_bboxes) -> np.ndarray:
-        """Generate heatmap with realistic noise and errors."""
+    def _generate_noisy_heatmap(self, height, width, gt_bboxes):
+        """Generate a noisy heatmap with intentional imperfections"""
         heatmap = np.zeros((height, width), dtype=np.float32)
         
-        # No objects = pure background prior
         if len(gt_bboxes) == 0:
             return self._generate_background_prior(height, width)
         
         for bbox in gt_bboxes:
-            # Get bbox center (but add noise)
-            cx = (bbox[0] + bbox[2]) / 2
-            cy = (bbox[1] + bbox[3]) / 2
+            # Get the tensor data from HorizontalBoxes object and ensure it's on CPU
+            bbox_tensor = bbox.tensor.squeeze(0) if bbox.tensor.dim() > 1 else bbox.tensor
+            # Move to CPU if it's on GPU
+            bbox_tensor = bbox_tensor.cpu() if bbox_tensor.is_cuda else bbox_tensor
+            
+            # These are already in xyxy format (x1, y1, x2, y2)
+            x1, y1, x2, y2 = bbox_tensor
+            cx = (x1 + x2) / 2
+            cy = (y1 + y2) / 2
+            
+            # Convert to numpy for compatibility with meshgrid
+            cx = cx.item() if hasattr(cx, 'item') else float(cx)
+            cy = cy.item() if hasattr(cy, 'item') else float(cy)
             
             # Add noise to center with some probability
             if random.random() < self.noise_ratio:
@@ -125,9 +173,9 @@ class RobustHeatmapGeneration(BaseTransform):
             # Accumulate heatmaps
             heatmap = np.maximum(heatmap, heatmap_part)
         
-        # Add global noise to entire heatmap
-        if random.random() < 0.3:  # 30% chance
-            noise = np.random.normal(0, 0.05, (height, width))
+        # Add global noise to entire heatmap (configurable)
+        if self.global_noise_ratio > 0 and random.random() < self.global_noise_ratio:
+            noise = np.random.normal(0, self.global_noise_std, (height, width))
             heatmap = np.clip(heatmap + noise, 0, 1)
         
         return heatmap
@@ -139,12 +187,13 @@ class RobustHeatmapGeneration(BaseTransform):
         # Distance from center
         dist_sq = (x - cx)**2 + (y - cy)**2
         
-        # Gaussian with noise
+        # Gaussian with configurable noise
         heatmap = np.exp(-dist_sq / (2 * sigma**2))
         
-        # Add multiplicative noise to make it realistic
-        if random.random() < 0.5:
-            noise_factor = np.random.uniform(0.8, 1.2)
+        # Add multiplicative noise to make it realistic (configurable)
+        if self.multiplicative_noise_ratio > 0 and random.random() < self.multiplicative_noise_ratio:
+            noise_min, noise_max = self.multiplicative_noise_range
+            noise_factor = np.random.uniform(noise_min, noise_max)
             heatmap *= noise_factor
         
         return np.clip(heatmap, 0, 1).astype(np.float32)
@@ -199,9 +248,10 @@ class RobustHeatmapGeneration(BaseTransform):
         
         prior = 0.05 * (1.0 - dist / max_dist)  # Very weak signal
         
-        # Add noise
-        noise = np.random.normal(0, 0.02, (height, width))
-        prior = np.clip(prior + noise, 0, 0.1)  # Keep background low
+        # Add configurable noise
+        if self.background_noise_std > 0:
+            noise = np.random.normal(0, self.background_noise_std, (height, width))
+            prior = np.clip(prior + noise, 0, 0.1)  # Keep background low
         
         return prior.astype(np.float32)
     

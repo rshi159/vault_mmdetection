@@ -86,9 +86,10 @@ def _validate_setup(config_path: Path) -> bool:
     
     # Check for required training data files
     required_files = {
-        "Training annotations": data_root / "annotations/instances_train.json",
-        "Validation annotations": data_root / "annotations/instances_val.json",
-        "Images directory": data_root / "images"
+        "Training annotations": data_root / "train/annotations.json",
+        "Validation annotations": data_root / "valid/annotations.json",
+        "Training images": data_root / "train/images",
+        "Validation images": data_root / "valid/images"
     }
     
     for name, path in required_files.items():
@@ -122,9 +123,7 @@ def _execute_training(mmdet_root: Path, config_path: Path,
         sys.executable,
         str(train_script),
         str(config_path),
-        "--work-dir", str(work_dir),
-        "--seed", "42",
-        "--deterministic"
+        "--work-dir", str(work_dir)
     ]
     
     # Print execution information

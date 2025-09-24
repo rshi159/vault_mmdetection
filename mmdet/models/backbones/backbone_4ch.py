@@ -4,13 +4,15 @@ import torch.nn as nn
 from typing import Dict, List, Tuple
 import math
 
+from mmdet.registry import MODELS
+
 class BasicBlock(nn.Module):
     """Basic building block for CSP backbone."""
 
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3, stride: int = 1):
         super().__init__()
         padding = kernel_size // 2
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding, bias=False)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=False)
         self.bn = nn.BatchNorm2d(out_channels)
         self.act = nn.SiLU(inplace=True)
 
@@ -42,6 +44,7 @@ class CSPBlock(nn.Module):
         out = torch.cat([main, short], dim=1)
         return self.final_conv(out)
 
+@MODELS.register_module()
 class CSPNeXt4Ch(nn.Module):
     """
     4-channel CSPNeXt backbone for RTMDet.
@@ -52,7 +55,11 @@ class CSPNeXt4Ch(nn.Module):
                  arch: str = 'P5',
                  widen_factor: float = 0.375,
                  deepen_factor: float = 0.167,
-                 out_indices: Tuple[int] = (2, 3, 4)):
+                 out_indices: Tuple[int] = (2, 3, 4),
+                 norm_cfg: Dict = None,
+                 act_cfg: Dict = None,
+                 init_cfg: Dict = None,
+                 **kwargs):  # Accept any other kwargs to be compatible
         super().__init__()
 
         self.arch = arch
@@ -77,8 +84,8 @@ class CSPNeXt4Ch(nn.Module):
         in_ch = channels[0]
 
         for i, (out_ch, num_blocks) in enumerate(zip(channels[1:], blocks)):
-            # Downsample
-            downsample = BasicBlock(in_ch, out_ch, 3)
+            # Downsample with stride=2
+            downsample = BasicBlock(in_ch, out_ch, 3, stride=2)
             # CSP Block
             csp_block = CSPBlock(out_ch, out_ch, num_blocks)
 

@@ -2,6 +2,12 @@
 import argparse
 import os
 import os.path as osp
+import sys
+
+# Add repository root to Python path to find mmdet package
+repo_root = osp.dirname(osp.dirname(osp.abspath(__file__)))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
 
 from mmengine.config import Config, DictAction
 from mmengine.registry import RUNNERS
@@ -59,6 +65,20 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    # Import custom 4-channel components (ensure they are registered)
+    print(f"✅ Repository root already added to Python path")
+    
+    try:
+        # Import custom transforms and models to ensure registration
+        from mmdet.datasets.transforms.robust_heatmap import RobustHeatmapGeneration
+        from mmdet.datasets.transforms.heatmap_transforms import Pad4Channel
+        from mmdet.models.backbones import CSPNeXt4Ch
+        from mmdet.models.data_preprocessors import DetDataPreprocessor4Ch
+        print("✅ Custom 4-channel components loaded successfully")
+    except ImportError as e:
+        print(f"⚠️ Warning: Could not import custom components: {e}")
+        raise ValueError("Ensure custom 4-channel components are available.")
 
     # Reduce the number of repeated compilations and improve
     # training speed.

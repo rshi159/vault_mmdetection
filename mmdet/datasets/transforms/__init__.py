@@ -3,6 +3,7 @@ from .augment_wrappers import AutoAugment, RandAugment
 from .colorspace import (AutoContrast, Brightness, Color, ColorTransform,
                          Contrast, Equalize, Invert, Posterize, Sharpness,
                          Solarize, SolarizeAdd)
+from .fast_4ch import FastPad4Channel, RGBOnly4Channel
 from .formatting import (ImageToTensor, PackDetInputs, PackReIDInputs,
                          PackTrackInputs, ToTensor, Transpose)
 from .frame_sampling import BaseFrameSample, UniformRefFrameSample
@@ -10,6 +11,7 @@ from .geometric import (GeomTransform, Rotate, ShearX, ShearY, TranslateX,
                         TranslateY)
 from .heatmap_transforms import GenerateHeatmapChannel, Pad4Channel
 from .robust_heatmap import RobustHeatmapGeneration, HeatmapQualityScheduler
+from .zero_heatmap import ZeroHeatmapTransform
 from .instaboost import InstaBoost
 from .loading import (FilterAnnotations, InferencerLoader, LoadAnnotations,
                       LoadEmptyAnnotations, LoadImageFromNDArray,
@@ -44,5 +46,6 @@ __all__ = [
     'PackTrackInputs', 'PackReIDInputs', 'FixScaleResize',
     'ResizeShortestEdge', 'GTBoxSubOne_GLIP', 'RandomFlip_GLIP',
     'RandomSamplingNegPos', 'LoadTextAnnotations', 'GenerateHeatmapChannel',
-    'Pad4Channel', 'RobustHeatmapGeneration', 'HeatmapQualityScheduler'
+    'Pad4Channel', 'RobustHeatmapGeneration', 'HeatmapQualityScheduler',
+    'ZeroHeatmapTransform', 'FastPad4Channel', 'RGBOnly4Channel'
 ]

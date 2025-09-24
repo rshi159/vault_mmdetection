@@ -115,6 +115,9 @@ class DynamicSoftLabelAssigner(BaseAssigner):
 
         prior_center = priors[:, :2]
         if isinstance(gt_bboxes, BaseBoxes):
+            # Ensure gt_bboxes and prior_center are on the same device
+            if gt_bboxes.tensor.device != prior_center.device:
+                gt_bboxes = gt_bboxes.to(prior_center.device)
             is_in_gts = gt_bboxes.find_inside_points(prior_center)
         else:
             # Tensor boxes will be treated as horizontal boxes by defaults
@@ -158,6 +161,8 @@ class DynamicSoftLabelAssigner(BaseAssigner):
             F.one_hot(gt_labels.to(torch.int64),
                       pred_scores.shape[-1]).float().unsqueeze(0).repeat(
                           num_valid, 1, 1))
+        # Ensure gt_onehot_label is on the same device as pairwise_ious
+        gt_onehot_label = gt_onehot_label.to(pairwise_ious.device)
         valid_pred_scores = valid_pred_scores.unsqueeze(1).repeat(1, num_gt, 1)
 
         soft_label = gt_onehot_label * pairwise_ious[..., None]
@@ -175,7 +180,9 @@ class DynamicSoftLabelAssigner(BaseAssigner):
         # convert to AssignResult format
         assigned_gt_inds[valid_mask] = matched_gt_inds + 1
         assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
-        assigned_labels[valid_mask] = gt_labels[matched_gt_inds].long()
+        # Ensure gt_labels is on the same device as matched_gt_inds
+        gt_labels_device = gt_labels.to(matched_gt_inds.device)
+        assigned_labels[valid_mask] = gt_labels_device[matched_gt_inds].long()
         max_overlaps = assigned_gt_inds.new_full((num_bboxes, ),
                                                  -INF,
                                                  dtype=torch.float32)

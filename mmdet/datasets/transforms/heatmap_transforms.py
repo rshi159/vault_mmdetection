@@ -5,19 +5,27 @@ Integrates with existing heatmap_generator.py for conveyor detection.
 
 import numpy as np
 import cv2
+import mmcv
 from mmcv.transforms import BaseTransform
 from mmdet.registry import TRANSFORMS
 from pathlib import Path
 import sys
 
-# Add development directory to find heatmap_generator
-dev_dir = Path(__file__).parent.parent.parent / 'development'
+# Add development/heatmap_generation directory to find heatmap_generator
+dev_dir = Path(__file__).parent.parent.parent.parent / 'development' / 'heatmap_generation'
 sys.path.insert(0, str(dev_dir))
 
 try:
-    from heatmap_generator import ConveyorHeatmapGenerator
-except ImportError:
-    print("Warning: ConveyorHeatmapGenerator not found. Using dummy heatmap generation.")
+    from heatmap_generator import HeatmapGenerator
+    # Create alias for backward compatibility
+    ConveyorHeatmapGenerator = HeatmapGenerator
+except ImportError as e:
+    print(f"Warning: HeatmapGenerator not found. ImportError: {e}")
+    print("Using dummy heatmap generation.")
+    ConveyorHeatmapGenerator = None
+except Exception as e:
+    print(f"Warning: HeatmapGenerator import failed with {type(e).__name__}: {e}")
+    print("Using dummy heatmap generation.")
     ConveyorHeatmapGenerator = None
 
 
@@ -150,41 +158,25 @@ class Pad4Channel(BaseTransform):
         self.pad_val = pad_val
     
     def transform(self, results):
-        """Pad 4-channel image."""
+        """Apply padding to 4-channel image."""
         img = results['img']
         
-        if len(img.shape) == 3 and img.shape[2] == 4:
-            # Handle 4-channel image
-            h, w = img.shape[:2]
-            target_h, target_w = self.size
-            
-            # Calculate padding
-            pad_h = max(0, target_h - h)
-            pad_w = max(0, target_w - w)
-            
-            if pad_h > 0 or pad_w > 0:
-                pad_top = pad_h // 2
-                pad_bottom = pad_h - pad_top
-                pad_left = pad_w // 2
-                pad_right = pad_w - pad_left
-                
-                # Get pad values
-                if isinstance(self.pad_val['img'], (list, tuple)) and len(self.pad_val['img']) == 4:
-                    pad_values = self.pad_val['img']
-                else:
-                    pad_values = (114, 114, 114, 0)  # Default RGBH padding
-                
-                # Pad each channel
-                padded_img = np.zeros((target_h, target_w, 4), dtype=img.dtype)
-                
-                # Fill with padding values
-                for c in range(4):
-                    padded_img[:, :, c] = pad_values[c]
-                
-                # Place original image
-                padded_img[pad_top:pad_top+h, pad_left:pad_left+w] = img
-                
-                results['img'] = padded_img
-                results['img_shape'] = padded_img.shape
+        # Ensure we have 4-channel input
+        if img.shape[2] != 4:
+            raise ValueError(f"Expected 4 channels, got {img.shape[2]}")
+        
+        # Apply padding using mmcv
+        img = mmcv.impad(
+            img, 
+            shape=self.size, 
+            pad_val=self.pad_val['img']
+        )
+        
+        # Update results
+        results['img'] = img
+        results['img_shape'] = img.shape
+        results['pad_shape'] = img.shape
+        results['pad_fixed_size'] = self.size
+        results['pad_size_divisor'] = None
         
         return results

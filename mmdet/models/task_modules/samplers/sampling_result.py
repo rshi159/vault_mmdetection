@@ -113,7 +113,9 @@ class SamplingResult(util_mixins.NiceRepr):
         else:
             if len(gt_bboxes.shape) < 2:
                 gt_bboxes = gt_bboxes.view(-1, box_dim)
-            self.pos_gt_bboxes = gt_bboxes[self.pos_assigned_gt_inds.long()]
+            # Ensure pos_assigned_gt_inds is on the same device as gt_bboxes
+            pos_assigned_gt_inds_device = self.pos_assigned_gt_inds.to(gt_bboxes.device)
+            self.pos_gt_bboxes = gt_bboxes[pos_assigned_gt_inds_device.long()]
 
     @property
     def priors(self):
